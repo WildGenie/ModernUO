@@ -128,9 +128,7 @@ namespace Server.Mobiles
                 return 0;
             }
 
-            m_Values[index] ??= new TitleInfo();
-
-            return m_Values[index].Value;
+            return m_Values[index]?.Value ?? 0;
         }
 
         public DateTime GetLastDecay(int index)
@@ -140,57 +138,49 @@ namespace Server.Mobiles
                 return DateTime.MinValue;
             }
 
-            m_Values[index] ??= new TitleInfo();
-
-            return m_Values[index].LastDecay;
+            return m_Values[index]?.LastDecay ?? DateTime.MinValue;
         }
 
         public void SetValue(int index, int value)
         {
-            m_Values ??= new TitleInfo[ChampionSpawnInfo.Table.Length];
-
-            if (index < 0 || index >= m_Values.Length)
+            if (index < 0 || index >= ChampionSpawnInfo.Table.Length)
             {
                 return;
             }
 
+            m_Values ??= new TitleInfo[ChampionSpawnInfo.Table.Length];
             m_Values[index] ??= new TitleInfo();
-
             m_Values[index].Value = Math.Max(value, 0);
         }
 
         public void Award(int index, int value)
         {
-            m_Values ??= new TitleInfo[ChampionSpawnInfo.Table.Length];
-
-            if (index < 0 || index >= m_Values.Length || value <= 0)
+            if (value <= 0 || index < 0 || index >= ChampionSpawnInfo.Table.Length)
             {
                 return;
             }
 
+            m_Values ??= new TitleInfo[ChampionSpawnInfo.Table.Length];
             m_Values[index] ??= new TitleInfo();
-
             m_Values[index].Value += value;
         }
 
         public void Atrophy(int index, int value)
         {
-            m_Values ??= new TitleInfo[ChampionSpawnInfo.Table.Length];
-
-            if (index < 0 || index >= m_Values.Length || value <= 0)
+            if (value <= 0 || index < 0 || index >= ChampionSpawnInfo.Table.Length)
             {
                 return;
             }
 
-            m_Values[index] ??= new TitleInfo();
+            m_Values ??= new TitleInfo[ChampionSpawnInfo.Table.Length];
+            var title = m_Values[index] ??= new TitleInfo();
+            var before = title.Value;
 
-            var before = m_Values[index].Value;
+            title.Value -= Math.Min(value, title.Value);
 
-            m_Values[index].Value -= Math.Min(value, m_Values[index].Value);
-
-            if (before != m_Values[index].Value)
+            if (before != title.Value)
             {
-                m_Values[index].LastDecay = Core.Now;
+                title.LastDecay = Core.Now;
             }
         }
 
@@ -213,15 +203,32 @@ namespace Server.Mobiles
             }
         }
 
+        public static bool ShouldAtrophy(PlayerMobile pm)
+        {
+            var t = pm.ChampionTitles;
+            if (t?.m_Values == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < t.m_Values.Length; i++)
+            {
+                if (t.GetLastDecay(i) + LossDelay < Core.Now)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public static void CheckAtrophy(PlayerMobile pm)
         {
             var t = pm.ChampionTitles;
-            if (t == null)
+            if (t?.m_Values == null)
             {
                 return;
             }
-
-            t.m_Values ??= new TitleInfo[ChampionSpawnInfo.Table.Length];
 
             for (var i = 0; i < t.m_Values.Length; i++)
             {
